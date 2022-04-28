@@ -3,11 +3,10 @@ require('dotenv').config();// We just need to call config on this package, that'
 const express = require("express");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const md5 = require("md5");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
-
-console.log(process.env.API_KEY);
 
 app.use(express.static("public"));
 app.set('view engine', 'ejs');
@@ -41,36 +40,42 @@ app.get("/register", function(req, res) {
 
 // Registering an account
 app.post("/register", function(req, res) {
-    const newUser = new User({
-        email: req.body.username,
-        password: md5(req.body.password)
+
+    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+        // Store hash in your password DB.
+        const newUser = new User({
+            email: req.body.username,
+            password: hash
+        });
+    
+        newUser.save(function(err) {
+            if (err) {
+                console.log(err);
+            } else {
+                // The secrets page can only be accessed if the user is registered or logged in.
+                res.render("secrets");
+            }
+        });
     });
 
-    newUser.save(function(err) {
-        if (err) {
-            console.log(err);
-        } else {
-            // The secrets page can only be accessed if the user is registered or logged in.
-            res.render("secrets");
-        }
-    });
 });
 
 //Logging into an account
 app.post("/login", function(req, res) {
     const username = req.body.username;
-    const password = md5(req.body.password);
+    const password = req.body.password;
     User.findOne({email: username}, function(err, foundUser) {
         if (err) {
             console.log(err);
         } else {
             if (foundUser) {
-                if (foundUser.password === password) {
-                    res.render("secrets");
+                   bcrypt.compare(password, foundUser.password).then(function(result) {
+                       if (result === true) {
+                           res.render("secrets");
+                       }
+                   });
                 }
             }
-
-        }
     });
 });
 
