@@ -35,7 +35,8 @@ const {Schema} = mongoose;
 const userSchema = new Schema({
     email: String,
     password: String,
-    googleId: String
+    googleId: String,
+    secret: String
 });
 
 userSchema.plugin(passportLocalMongoose); // This will be used save users, salt and hash their passwords.
@@ -95,12 +96,45 @@ app.get("/register", function(req, res) {
     res.render("register");
 });
 
+// Rendering the secrets page.
 app.get("/secrets", function(req, res) {
+    User.find({"secret": {$ne: null}}, function(err, foundUsers) {
+        if (err) {
+            console.log(err);
+        } else {
+            if (foundUsers) {
+                res.render("secrets", {usersWithSecrets: foundUsers});
+            }
+        }
+    });
+});
+
+app.get("/submit", function(req, res) {
     if (req.isAuthenticated()) {
-        res.render("secrets");
+        res.render("submit");
     } else {
         res.redirect("/login");
-    }
+    }   
+});
+
+// Submitting and saving a secret.
+app.post("/submit", function(req, res) {
+    const submittedSecret = req.body.secret;
+
+    console.log(req.user);
+
+    User.findById(req.user.id, function(err, foundUser) {
+        if (err) {
+            console.log(err);
+        } else {
+            if (foundUser) {
+                foundUser.secret = submittedSecret;
+                foundUser.save(function() {
+                    res.redirect("/secrets");
+                });
+            }
+        }
+    });
 });
 
 app.get("/logout", function(req, res) {
